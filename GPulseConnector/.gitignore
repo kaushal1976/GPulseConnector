@@ -1,0 +1,125 @@
+##############################
+# .NET / ASP.NET Core
+##############################
+
+# Build output
+bin/
+obj/
+out/
+publish/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet packages
+*.nupkg
+*.snupkg
+packages/
+*.nuspec
+
+##############################
+# Ignore ALL appsettings files
+##############################
+appsettings*.json
+
+# This covers:
+# - appsettings.json
+# - appsettings.Development.json
+# - appsettings.Production.json
+# - appsettings.Local.json
+# - appsettings.Test.json
+# - ANY file starting with appsettings and ending with .json
+
+##############################
+# Environment & Secrets
+##############################
+.env
+.env.*
+secrets.json
+*.key
+*.pem
+*.pfx
+*.cer
+
+##############################
+# Databases
+##############################
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# SQL Server localdb
+*.mdf
+*.ldf
+
+# Backups / dumps
+*.sql
+*.bak
+*.sqlite
+*.sqlite3
+
+##############################
+# Logs
+##############################
+*.log
+logs/
+log/
+
+##############################
+# Visual Studio / VS Code
+##############################
+
+# VS Code settings
+.vscode/
+
+# Visual Studio
+.vs/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings
+
+# Rider
+.idea/
+
+##############################
+# OS-specific temporary files
+##############################
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*.swp
+*.swo
+
+##############################
+# Other common ignores
+##############################
+
+# Coverage tools
+coverage/
+coverage*.json
+coverage*.xml
+lcov.info
+
+# Logs and temporary output
+*.tmp
+*.temp
+
+# Publish settings
+Properties/PublishProfiles/
+
+# ASP.NET HTTPS dev certs cache
+aspnetcore-dev-certs/
+
+.DS_Store

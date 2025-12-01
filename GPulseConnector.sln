@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36623.8
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GPulseConnector", "GPulseConnector\GPulseConnector.csproj", "{0FA126FA-96FA-43DF-81C2-911C27E569E8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0FA126FA-96FA-43DF-81C2-911C27E569E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0FA126FA-96FA-43DF-81C2-911C27E569E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0FA126FA-96FA-43DF-81C2-911C27E569E8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0FA126FA-96FA-43DF-81C2-911C27E569E8}.Debug|x86.Build.0 = Debug|Any CPU
+		{0FA126FA-96FA-43DF-81C2-911C27E569E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0FA126FA-96FA-43DF-81C2-911C27E569E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0FA126FA-96FA-43DF-81C2-911C27E569E8}.Release|x86.ActiveCfg = Release|Any CPU
+		{0FA126FA-96FA-43DF-81C2-911C27E569E8}.Release|x86.Build.0 = Release|Any CPU
+		{B883A28B-EA83-492A-96B4-0A7DB13F4FF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B883A28B-EA83-492A-96B4-0A7DB13F4FF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B883A28B-EA83-492A-96B4-0A7DB13F4FF1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B883A28B-EA83-492A-96B4-0A7DB13F4FF1}.Debug|x86.Build.0 = Debug|Any CPU
+		{B883A28B-EA83-492A-96B4-0A7DB13F4FF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B883A28B-EA83-492A-96B4-0A7DB13F4FF1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B883A28B-EA83-492A-96B4-0A7DB13F4FF1}.Release|x86.ActiveCfg = Release|Any CPU
+		{B883A28B-EA83-492A-96B4-0A7DB13F4FF1}.Release|x86.Build.0 = Release|Any CPU
+		{F175341F-E986-B130-4C01-D351ABD8BBEA}.Debug|Any CPU.ActiveCfg = Debug
+		{F175341F-E986-B130-4C01-D351ABD8BBEA}.Debug|x86.ActiveCfg = Debug
+		{F175341F-E986-B130-4C01-D351ABD8BBEA}.Release|Any CPU.ActiveCfg = Release
+		{F175341F-E986-B130-4C01-D351ABD8BBEA}.Release|x86.ActiveCfg = Release
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {33D0B079-7A86-4A86-A684-CE6172E4B1B7}
+	EndGlobalSection
+EndGlobal
