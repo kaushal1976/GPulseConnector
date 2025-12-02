@@ -23,9 +23,7 @@
 		<PackageReference Include="Serilog" Version="4.3.0" />
 		<PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
 		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Domain\" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
 	</ItemGroup>
 	<ItemGroup>
 	<None Update="appsettings.json">
@@ -37,5 +35,10 @@
 	<None Update="appsettings.Production.json">
 		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	</None>
+	</ItemGroup>
+	<ItemGroup>
+		<None Update="logs\*.log">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 	</ItemGroup>
 </Project>
