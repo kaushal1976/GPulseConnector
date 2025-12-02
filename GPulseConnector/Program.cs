@@ -25,6 +25,17 @@ using System;;
 var builder = Host.CreateApplicationBuilder(args);
 
 // ---------------------------------------
+//APP SETTINGS
+
+builder.Configuration.Sources.Clear();
+
+// Load external configuration
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
+// ---------------------------------------
 // OPTIONS
 // ---------------------------------------
 builder.Services.Configure<DeviceOptions>(
