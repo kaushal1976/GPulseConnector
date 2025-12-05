@@ -19,7 +19,6 @@ namespace GPulseConnector.Workers
         private readonly MachineEventDatabaseWriter _eventDatabaseWriter;
         private readonly ReliableDatabaseWriter _reliableDatabaseWriter;
         private readonly OutputUpdateWorker _outputUpdateWorker;
-
         private readonly IPatternMappingCache _patternCache;    
 
         public RecordWriterWorker(
