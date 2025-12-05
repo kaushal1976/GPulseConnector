@@ -40,19 +40,47 @@ namespace GPulseConnector.Workers
             _patternCache = patternCache;
         }
 
+        private object? _lastInputsRaw;
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await foreach (var inputs in _inputChannel.Reader.ReadAllAsync(stoppingToken))
             {
-                var matched = await _patternCache.MatchPatternAsync(inputs);
+                bool isDuplicate = false;
+
+                if (_lastInputsRaw != null)
+                    isDuplicate = AreInputsSameGeneric((IReadOnlyList<object>)_lastInputsRaw, ToObjectList(inputs));
+
+                if (isDuplicate)
+                {
+                    _logger.LogInformation(
+                        "Skipping processing because inputs are identical to previous: {Inputs}",
+                        string.Join(", ", inputs));
+
+                    continue;
+                }
+
+                // save last inputs as object list
+                _lastInputsRaw = ToObjectList(inputs);
+
+                PatternMapping? matched = null;
+
+                try
+                {
+                    matched = await _patternCache.MatchPatternAsync(inputs);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Pattern matching failed for inputs {Inputs}", string.Join(", ", inputs));
+                }
 
                 try
                 {
                     MachineEvent record = _eventFactory.CreateFromInputs(inputs);
                     record.StatusId = matched?.Id;
+
                     bool ok = await _eventDatabaseWriter.TryWriteMachineEventAsync(record);
                     _logger.LogInformation("Event Record written to primary DB at {T}", record.TimeStamp);
-
                 }
                 catch (Exception ex)
                 {
@@ -63,21 +91,44 @@ namespace GPulseConnector.Workers
                 {
                     if (matched != null)
                     {
-                        _logger.LogInformation("Matched pattern with ID {Id} for inputs {Inputs}", matched.Id, string.Join(", ", inputs));
+                        _logger.LogInformation(
+                            "Matched pattern with ID {Id} for inputs {Inputs}",
+                            matched.Id, string.Join(", ", inputs));
+
                         await _outputUpdateWorker.UpdateOutputAsync(matched, stoppingToken);
                     }
                     else
                     {
                         _logger.LogInformation("No pattern matched for inputs {Inputs}", string.Join(", ", inputs));
                     }
-                    
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Could not update the outputs" );
+                    _logger.LogWarning(ex, "Could not update the outputs");
                 }
-
             }
+        }
+
+        private static bool AreInputsSameGeneric(IReadOnlyList<object> a, IReadOnlyList<object> b)
+        {
+            if (a.Count != b.Count)
+                return false;
+
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (!Equals(a[i], b[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static IReadOnlyList<object> ToObjectList<T>(IReadOnlyList<T> list)
+        {
+            var result = new object[list.Count];
+            for (int i = 0; i < list.Count; i++)
+                result[i] = list[i]!;
+            return result;
         }
 
     }

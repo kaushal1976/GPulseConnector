@@ -29,8 +29,6 @@ public class OutputUpdateWorker : BackgroundService
         await _device.ConnectAsync(stoppingToken);
         _logger.LogInformation("Output Controller Starting..");
 
-        _device.DeviceDisconnected += (isConnected)  => OnDeviceDisconnected(isConnected);
-
         // Read snapshot
         var current = await _device.ReadOutputsAsync(stoppingToken);    
 
