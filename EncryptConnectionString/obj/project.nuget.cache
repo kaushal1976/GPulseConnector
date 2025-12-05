@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "uPw+84Fv2qg=",
+  "success": true,
+  "projectFilePath": "/Users/kaushal/Documents/VSCode Projects/GPulseConnector/EncryptConnectionString/EncryptConnectionString.csproj",
+  "expectedPackageFiles": [
+    "/Users/kaushal/.nuget/packages/microsoft.netcore.app.ref/8.0.20/microsoft.netcore.app.ref.8.0.20.nupkg.sha512",
+    "/Users/kaushal/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.20/microsoft.aspnetcore.app.ref.8.0.20.nupkg.sha512",
+    "/Users/kaushal/.nuget/packages/microsoft.netcore.app.host.osx-arm64/8.0.20/microsoft.netcore.app.host.osx-arm64.8.0.20.nupkg.sha512"
+  ],
+  "logs": []
+}

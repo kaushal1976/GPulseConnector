@@ -15,10 +15,6 @@ namespace GPulseConnector.Workers
     {
         private readonly ILogger<RecordWriterWorker> _logger;
         private readonly Channel<IReadOnlyList<bool>> _inputChannel;
-        private readonly BufferedRecordWriter _bufferedWriter;
-        private readonly IRecordWriter _primaryWriter;
-        private readonly IRecordWriter _fallbackWriter;
-        private readonly DeviceRecordFactory _factory;
         private readonly MachineEventFactory _eventFactory;
         private readonly MachineEventDatabaseWriter _eventDatabaseWriter;
         private readonly ReliableDatabaseWriter _reliableDatabaseWriter;
@@ -29,22 +25,14 @@ namespace GPulseConnector.Workers
         public RecordWriterWorker(
         ILogger<RecordWriterWorker> logger,
         Channel<IReadOnlyList<bool>> inputChannel,
-        BufferedRecordWriter bufferedWriter,
-        IRecordWriter primaryWriter,
-        IRecordWriter fallbackWriter,
         MachineEventFactory eventFactory,
         MachineEventDatabaseWriter eventDatabaseWriter,
         ReliableDatabaseWriter reliableDatabaseWriter,
         OutputUpdateWorker outputUpdateWorker,
-        IPatternMappingCache patternCache,
-        DeviceRecordFactory factory)
+        IPatternMappingCache patternCache)
         {
             _logger = logger;
             _inputChannel = inputChannel;
-            _bufferedWriter = bufferedWriter;
-            _primaryWriter = primaryWriter;
-            _fallbackWriter = fallbackWriter;
-            _factory = factory;
             _eventFactory = eventFactory;
             _eventDatabaseWriter = eventDatabaseWriter;
             _reliableDatabaseWriter = reliableDatabaseWriter;
@@ -57,24 +45,6 @@ namespace GPulseConnector.Workers
             await foreach (var inputs in _inputChannel.Reader.ReadAllAsync(stoppingToken))
             {
                 var matched = await _patternCache.MatchPatternAsync(inputs);
-                try
-                {
-                    DeviceRecord rec = _factory.CreateFromInputs(inputs);
-                    bool ok = await _primaryWriter.WriteAsync(rec, stoppingToken);
-                    if (!ok)
-                    {
-                        await _fallbackWriter.WriteAsync(rec, stoppingToken);
-                        _logger.LogWarning("Primary DB write failed, fallback used for record at {T}", rec.Timestamp);
-                    }
-                    else
-                    {
-                        _logger.LogInformation("Record written to primary DB at {T}", rec.Timestamp);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error converting input snapshot to record");
-                }
 
                 try
                 {
@@ -86,7 +56,7 @@ namespace GPulseConnector.Workers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Event written to the DB");
+                    _logger.LogWarning(ex, "Event could not be written to the DB");
                 }
 
                 try

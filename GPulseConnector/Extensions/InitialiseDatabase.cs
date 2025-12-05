@@ -51,7 +51,7 @@ public static class InitialiseDatabase
                     }
                     catch (Exception ex)
                     {
-                        logger?.LogWarning(ex, "Failed to create MSSQL database. Skipping.");
+                        logger?.LogWarning("Failed to create MSSQL database. Skipping.");
                         goto SkipMssqlEnsureCreated;
                     }
 
@@ -63,14 +63,14 @@ public static class InitialiseDatabase
                     }
                     catch (Exception ex)
                     {
-                        logger?.LogWarning(ex, "Failed to ensure MSSQL tables.");
+                        logger?.LogWarning("Failed to ensure MSSQL tables.");
                     }
 
                 SkipMssqlEnsureCreated:;
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogWarning(ex, "MSSQL unreachable or DbContext creation failed. Skipping database initialization.");
+                    logger?.LogWarning("MSSQL unreachable or DbContext creation failed. Skipping database initialization.");
                 }
             }
             else
@@ -92,7 +92,7 @@ public static class InitialiseDatabase
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogWarning(ex, "SQLite fallback database creation failed.");
+                    logger?.LogWarning("SQLite fallback database creation failed.");
                 }
             }
             else

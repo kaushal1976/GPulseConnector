@@ -14,7 +14,6 @@ namespace GPulseConnector.Data
         public SQLiteFallbackDbContext(DbContextOptions<SQLiteFallbackDbContext> options)
             : base(options) { }
 
-        public DbSet<DeviceRecord> DeviceRecords { get; set; } = null!;
         public DbSet<RetryQueueItem> RetryQueue => Set<RetryQueueItem>();
         public DbSet<PatternMapping> PatternMappings => Set<PatternMapping>();
 
@@ -22,18 +21,6 @@ namespace GPulseConnector.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<DeviceRecord>(entity =>
-            {
-                entity.OwnsMany(r => r.Inputs, b =>
-                {
-                    b.WithOwner().HasForeignKey("DeviceRecordId");
-                    b.Property<int>("Id");
-                    b.HasKey("Id");
-                    b.Property(i => i.Name).IsRequired();
-                    b.Property(i => i.Value).IsRequired();
-                });
-               
-            });
             
             modelBuilder.Entity<RetryQueueItem>(b =>
             {
@@ -65,18 +52,6 @@ namespace GPulseConnector.Data
                 b.HasIndex(q => q.PayloadHash)
                 .IsUnique(false);
             });
-
-            modelBuilder.Entity<DeviceRecord>(b =>
-            {
-                b.HasKey(d => d.Id);
-                b.Property(d => d.Id)
-                .ValueGeneratedOnAdd();
-            });
-
-           
-
-
-
         }
     }
 }

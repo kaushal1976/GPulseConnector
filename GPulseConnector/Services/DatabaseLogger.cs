@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using GPulseConnector.Data;
 using GPulseConnector.Abstraction.Models;
+using Microsoft.Data.SqlClient;
 
 namespace GPulseConnector.Services
 {
@@ -15,7 +16,7 @@ namespace GPulseConnector.Services
             _logger = logger;
         }
 
-        public async Task LogAsync(string message, string level = "Information")
+        public async Task LogAsync(string message, string level = "Error")
         {
             try
             {
@@ -23,9 +24,19 @@ namespace GPulseConnector.Services
                 db.LogEntries.Add(new LogEntry { Message = message, Level = level });
                 await db.SaveChangesAsync();
             }
+            catch (SqlException)
+            {
+                
+            }
+            catch (ObjectDisposedException)
+            {
+                
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to write log to database");
+                
+                _logger.LogError(ex, "Failed to write log to database (non-retry failure)");
+                //throw; // optional (remove Throw if you want to continue silently)
             }
         }
     }

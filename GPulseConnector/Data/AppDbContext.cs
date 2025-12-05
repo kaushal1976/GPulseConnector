@@ -10,7 +10,7 @@ namespace GPulseConnector.Data
         public DbSet<LogEntry> LogEntries => Set<LogEntry>();
         public DbSet<MachineEvent> MachineEvents => Set<MachineEvent>();
         public DbSet<PatternMapping> PatternMappings => Set<PatternMapping>();
-        public DbSet<DeviceRecord> DeviceRecords => Set<DeviceRecord>();
+    
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -23,10 +23,6 @@ namespace GPulseConnector.Data
                 b.Property(l => l.Level).HasMaxLength(50);
             });
 
-            modelBuilder.Entity<DeviceInputState>(entity =>
-            {
-                entity.HasKey(x => x.Id);
-                });
 
         }
     }

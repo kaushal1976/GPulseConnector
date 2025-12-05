@@ -18,6 +18,7 @@ using Serilog;
 using System;
 using System.IO;
 using System.Threading.Channels;
+using Serilog.Events;
 
 IHost host = Host.CreateDefaultBuilder(args)
     .UseWindowsService() 
@@ -46,8 +47,6 @@ IHost host = Host.CreateDefaultBuilder(args)
         var inputChannel = Channel.CreateUnbounded<IReadOnlyList<bool>>();
         services.AddSingleton(inputChannel);
 
-        var recordChannel = Channel.CreateUnbounded<DeviceRecord>();
-        services.AddSingleton(recordChannel);
 
         // -----------------------------
         // DEVICES
@@ -58,53 +57,68 @@ IHost host = Host.CreateDefaultBuilder(args)
         // -----------------------------
         // FACTORIES & CACHES
         // -----------------------------
-        services.AddSingleton<DeviceRecordFactory>();
+
         services.AddSingleton<MachineEventFactory>();
         services.AddSingleton<IPatternMappingCache, PatternMappingCache>();
 
         // -----------------------------
         // DATABASE CONTEXTS
         // -----------------------------
+
         var dbOpts = configuration.GetSection("Database").Get<DatabaseOptions>()!;
 
-        services.AddDbContextFactory<DeviceRecordDbContext>(options =>
-            options.UseSqlServer(dbOpts.MssqlConnectionString, sql => sql.EnableRetryOnFailure()));
-
-        services.AddDbContext<MainDbContext>(options =>
-            options.UseSqlServer(dbOpts.MssqlConnectionString, sql => sql.EnableRetryOnFailure()));
-
         services.AddDbContextFactory<AppDbContext>(options =>
-            options.UseSqlServer(dbOpts.MssqlConnectionString, sql => sql.EnableRetryOnFailure()));
+            options.UseSqlServer(AesEncryption.Decrypt(dbOpts.MssqlConnectionString).Trim(), sql => sql.EnableRetryOnFailure())
+            .LogTo(
+                message => {
+                // Only log messages that are NOT Executed DbCommand
+                    if (!message.StartsWith("Executed DbCommand"))
+                    {
+                        Serilog.Log.Information(message);
+                    }
+                },  
+                LogLevel.Error                  
+                )
+            );
 
         if (dbOpts.EnableSQLiteFallback)
         {
             services.AddDbContextFactory<SQLiteFallbackDbContext>(options =>
-                options.UseSqlite($"Data Source={dbOpts.SqlitePath}"));
-
-            services.AddDbContext<OfflineDbContext>(options =>
-                options.UseSqlite($"Data Source={dbOpts.SqlitePath}"));
+                options.UseSqlite($"Data Source={dbOpts.SqlitePath}")
+                .LogTo(
+                    message => {
+                    // Only log messages that are NOT Executed DbCommand
+                        if (!message.StartsWith("Executed DbCommand"))
+                        {
+                            Serilog.Log.Information(message);
+                        }
+                    },  
+                    LogLevel.Error
+                )
+                );
 
             services.AddDbContextFactory<RetryQueueDbContext>(options =>
-                options.UseSqlite($"Data Source={dbOpts.SqlitePath}"));
+                options.UseSqlite($"Data Source={dbOpts.SqlitePath}")
+                .LogTo(
+                message => {
+                // Only log messages that are NOT Executed DbCommand
+                    if (!message.StartsWith("Executed DbCommand"))
+                    {
+                        Serilog.Log.Information(message);
+                    }
+                },  
+                LogLevel.Error                  
+                )
+                );
         }
 
         // -----------------------------
         // WRITERS
         // -----------------------------
-        services.AddSingleton<SqlMssqlRecordWriter>();
-        services.AddSingleton<SqliteFallbackWriter>();
-        services.AddSingleton<MachineEventDatabaseWriter>();
-
-        services.AddSingleton<IRecordWriter>(sp =>
-            new FailOverRecordWriter(
-                sp.GetRequiredService<SqlMssqlRecordWriter>(),
-                sp.GetRequiredService<SqliteFallbackWriter>()
-            ));
-
-        services.AddSingleton<BufferedRecordWriter>(sp =>
-            new BufferedRecordWriter(recordChannel));
+        
 
         services.AddSingleton<RetryQueueRepository>();
+        services.AddSingleton<MachineEventDatabaseWriter>();
         services.AddSingleton<ReliableDatabaseWriter>();
         services.AddSingleton<DatabaseLogger>();
         services.AddSingleton<Blinker>();
@@ -127,7 +141,15 @@ IHost host = Host.CreateDefaultBuilder(args)
         var logDir = Path.Combine(AppContext.BaseDirectory, "logs");
         Directory.CreateDirectory(logDir);
 
-        loggerConfig.WriteTo.File(Path.Combine(logDir, "log-.log"), rollingInterval: RollingInterval.Day);
+        loggerConfig
+        .MinimumLevel.Information() // general minimum level
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)// EF Core command logs
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Infrastructure", LogEventLevel.Error) // EF Core infrastructure logs
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning) // EF Core general logs
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .WriteTo.File(Path.Combine(logDir, "log-.log"), rollingInterval: RollingInterval.Day);
+
     })
     .Build();
 

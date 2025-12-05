@@ -17,7 +17,7 @@ namespace GPulseConnector.Workers
         private readonly Channel<IReadOnlyList<bool>> _channel;
         private readonly ILogger<InputMonitoringWorker> _logger;
 
-        public InputMonitoringWorker(IInputDevice device, Channel<IReadOnlyList<bool>> channel, DeviceRecordFactory factory, ILogger<InputMonitoringWorker> logger)
+        public InputMonitoringWorker(IInputDevice device, Channel<IReadOnlyList<bool>> channel, ILogger<InputMonitoringWorker> logger)
         {
             _device = device;
             _channel = channel;
