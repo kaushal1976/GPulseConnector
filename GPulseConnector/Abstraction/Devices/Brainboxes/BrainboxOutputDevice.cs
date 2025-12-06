@@ -14,6 +14,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
     public class BrainboxOutputDevice : IOutputDevice, IDisposable
     {
         private readonly ILogger<BrainboxOutputDevice>? _logger;
+        private readonly IOptions<DeviceOptions> _options;
         private readonly EDDevice _device;
         private readonly int _outputCount;
 
@@ -42,6 +43,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             _device = new ED527(new TCPConnection(options.Value.OutputDevices.IpAddress));
             _logger = logger;
             _outputCount = outputCount;
+            _options = options;
 
             // Hook device events
             _device.IOLineChanged += OnDeviceOutputChanged;
@@ -103,7 +105,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                                 _device.Connect(); // synchronous connect
                                 IsConnected = true;
                                 DeviceDisconnected?.Invoke(false);
-                                _logger?.LogInformation("BrainboxOutputDevice: Connected");
+                                _logger?.LogInformation($"Output Device @{_options.Value.OutputDevices.IpAddress}: Connected");
                             }
                         }
                         await Task.Delay(ReconnectIntervalMs, token); // check periodically
@@ -116,7 +118,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                     {
                         lock (_connLock) { IsConnected = false; }
                         DeviceDisconnected?.Invoke(true);
-                        _logger?.LogWarning(ex, "BrainboxOutputDevice: Connect failed, retrying... "+DateTime.Now.ToLongTimeString());
+                        _logger?.LogWarning(ex, $"Output Device @{_options.Value.OutputDevices.IpAddress}: Connect failed, retrying... "+DateTime.Now.ToLongTimeString());
                         await Task.Delay(ReconnectIntervalMs, token);
                     }
                 }
@@ -137,7 +139,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
 
                 IsConnected = false;
                 DeviceDisconnected?.Invoke(true);
-                _logger?.LogInformation("BrainboxOutputDevice: Disconnected");
+                _logger?.LogInformation($"Output Device @{_options.Value.OutputDevices.IpAddress}: Disconnected");
             }
             return Task.CompletedTask;
         }
@@ -146,7 +148,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
         {
             if (!IsConnected)
             {
-                _logger?.LogWarning("ReadOutputsAsync called while device not connected.");
+                _logger?.LogWarning($"Output Device @{_options.Value.OutputDevices.IpAddress}: ReadOutputsAsync called while device not connected.");
                 return Enumerable.Repeat(false, _outputCount).ToList();
             }
 
@@ -161,7 +163,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             lock (_connLock)
             {
                 if (!IsConnected)
-                    throw new InvalidOperationException("Device not connected");
+                    throw new InvalidOperationException($"Output Device @{_options.Value.OutputDevices.IpAddress} is not connected");
 
                 _device.Outputs[index].Value = value ? 1 : 0;
             }
@@ -175,7 +177,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             lock (_connLock)
             {
                 if (!IsConnected)
-                    throw new InvalidOperationException("Device not connected");
+                    throw new InvalidOperationException($"Output Device @{_options.Value.OutputDevices.IpAddress} is not connected");
 
                 for (int i = 0; i < values.Count; i++)
                     _device.Outputs[i].Value = values[i] ? 1 : 0;

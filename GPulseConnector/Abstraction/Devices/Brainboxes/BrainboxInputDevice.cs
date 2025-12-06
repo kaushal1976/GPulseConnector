@@ -15,6 +15,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
     public class BrainboxInputDevice : IInputDevice, IDisposable
     {
         private readonly ILogger<BrainboxInputDevice> _logger;
+        private readonly IOptions<DeviceOptions> _options;
         private readonly int _numInputs;
 
         private readonly object _connLock = new();
@@ -49,7 +50,9 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             ILogger<BrainboxInputDevice> logger,
             int numInputs = 16,
             EDDevice? device = null)
+            
         {
+            _options = options;
             _logger = logger;
             _numInputs = numInputs;
             _device = device ?? new ED516(new TCPConnection(options.Value.InputDevices.IpAddress));
@@ -142,7 +145,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                         _isConnected = true;
                         _isAvailable = true;
                     }
-                    _logger.LogInformation("Device connected successfully");
+                    _logger.LogInformation($"Input Device @{_options.Value.InputDevices.IpAddress} connected successfully");
                 }
                 catch (System.Net.Sockets.SocketException ex)
                 {
@@ -151,7 +154,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                         _isConnected = false;
                         _isAvailable = false;
                     }
-                    _logger.LogWarning(ex, "Device connection failed: network unreachable or timeout");
+                    _logger.LogWarning(ex, $"Input Device @{_options.Value.InputDevices.IpAddress} connection failed: network unreachable or timeout");
                 }
                 catch (Exception ex)
                 {
@@ -160,7 +163,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                         _isConnected = false;
                         _isAvailable = false;
                     }
-                    _logger.LogError(ex, "Unexpected device connection error");
+                    _logger.LogError(ex, $"Unexpected Input Device @{_options.Value.InputDevices.IpAddress} connection error");
                 }
             }, token);
         }
@@ -169,7 +172,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
         {
             while (!token.IsCancellationRequested && !IsConnected)
             {
-                _logger.LogInformation("Attempting immediate reconnect...");
+                _logger.LogInformation($"Input Device @{_options.Value.InputDevices.IpAddress} attempting to connect...");
                 await ConnectDeviceAsync(token);
 
                 if (!IsConnected)
