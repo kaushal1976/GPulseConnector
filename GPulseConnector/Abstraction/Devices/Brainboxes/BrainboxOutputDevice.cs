@@ -80,17 +80,35 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             }
         }
 
-        public Task ConnectAsync(CancellationToken cancellationToken = default)
+        public async Task ConnectAsync(CancellationToken token = default)
         {
             lock (_connLock)
             {
-                if (IsConnected) return Task.CompletedTask;
+                if (IsConnected) return;
             }
 
-            // Run connection in background and start monitoring
+            try
+            {
+                _device.Connect(); // try immediately
+                lock (_connLock) IsConnected = true;
+
+                DeviceDisconnected?.Invoke(false);
+                _logger?.LogInformation($"Output Device @{_options.Value.OutputDevices.IpAddress}: Connected successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, $"Initial connect to {_options.Value.OutputDevices.IpAddress} failed");
+            }
+
+            // Then start monitoring loop
+            StartReconnectMonitor(token);
+        }
+
+        private void StartReconnectMonitor(CancellationToken token)
+        {
             _monitorCts?.Cancel();
-            _monitorCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var token = _monitorCts.Token;
+            _monitorCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            token = _monitorCts.Token;
 
             _monitorTask = Task.Run(async () =>
             {
@@ -98,34 +116,25 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                 {
                     try
                     {
-                        lock (_connLock)
+                        if (!IsConnected)
                         {
-                            if (!IsConnected)
-                            {
-                                _device.Connect(); // synchronous connect
-                                IsConnected = true;
-                                DeviceDisconnected?.Invoke(false);
-                                _logger?.LogInformation($"Output Device @{_options.Value.OutputDevices.IpAddress}: Connected");
-                            }
+                            _device.Connect();
+                            lock (_connLock) IsConnected = true;
+
+                            DeviceDisconnected?.Invoke(false);
                         }
-                        await Task.Delay(ReconnectIntervalMs, token); // check periodically
                     }
-                    catch (OperationCanceledException)
+                    catch
                     {
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        lock (_connLock) { IsConnected = false; }
+                        lock (_connLock) IsConnected = false;
                         DeviceDisconnected?.Invoke(true);
-                        _logger?.LogWarning(ex, $"Output Device @{_options.Value.OutputDevices.IpAddress}: Connect failed, retrying... "+DateTime.Now.ToLongTimeString());
-                        await Task.Delay(ReconnectIntervalMs, token);
                     }
+
+                    await Task.Delay(ReconnectIntervalMs, token);
                 }
             }, token);
-
-            return Task.CompletedTask;
         }
+
 
         public Task DisconnectAsync(CancellationToken cancellationToken = default)
         {
