@@ -29,7 +29,6 @@ namespace GPulseConnector.Workers
         {
         
             _logger.LogInformation("InputMonitoringWorker starting…");
-            await ReadInputs(token);
 
             // Subscribe to device events
             _device.InputsChanged += OnInputsChanged;
@@ -39,10 +38,7 @@ namespace GPulseConnector.Workers
 
         private void OnInputsChanged(IReadOnlyList<bool> inputs)
         {
-            if (!_channel.Writer.TryWrite(inputs))
-            {
-                _logger.LogWarning("Dropped input snapshot because channel is full");
-            }
+            Task.Run(() => ReadInputs (CancellationToken.None)  );    
         }
 
         private async Task ReadInputsLoopAsync(CancellationToken token)
