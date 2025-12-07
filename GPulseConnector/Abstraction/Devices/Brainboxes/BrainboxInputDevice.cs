@@ -94,6 +94,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                     .Select(i => i.Value == 1)
                     .ToList();
 
+                HandleInputsChanged();
                 return values.AsReadOnly();
             }
             catch (Exception ex)
@@ -151,6 +152,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                     _logger.LogInformation(
                         "Input Device @{Ip}: Connected successfully",
                         _options.InputDevices.IpAddress);
+                        await ReadInputsAsync(token);
                 }
             }
             catch (Exception ex)
