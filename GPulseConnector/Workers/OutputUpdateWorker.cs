@@ -34,7 +34,7 @@ public class OutputUpdateWorker : BackgroundService
 
         // Log them or process them
         _logger.LogInformation("Current output is {Output0}, {Output1}, {Output2}", current[0], current[1], current[2]);
-        _device.DeviceDisconnected += (isConnected) => OnDeviceDisconnected(isConnected);
+        _device.DeviceDisconnected += (isConnected) => OnDeviceDisconnected(isConnected, stoppingToken);
     }
 
     public async Task UpdateOutputAsync(PatternMapping mapping, CancellationToken stoppingToken)
@@ -63,9 +63,10 @@ public class OutputUpdateWorker : BackgroundService
             _logger.LogInformation("No patterns matched.");
         }
     }
-    public async void OnDeviceDisconnected(bool isConnected)
+    public async void OnDeviceDisconnected(bool isConnected, CancellationToken stoppingToken)
     {
-        _logger.LogWarning("Device disconnected unexpectedly!");
+        //_logger.LogWarning("Device disconnected unexpectedly!");
+        //await _device.ConnectAsync(stoppingToken);
             
     }
     

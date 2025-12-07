@@ -114,12 +114,14 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             {
                 while (!token.IsCancellationRequested)
                 {
+                    _logger?.LogDebug($"Output Device @{_options.Value.OutputDevices.IpAddress}: trying to reconnect...");
                     try
                     {
                         if (!IsConnected)
                         {
                             _device.Connect();
                             lock (_connLock) IsConnected = true;
+                            _logger?.LogInformation($"Output Device @{_options.Value.OutputDevices.IpAddress}: Reconnected successfully");
 
                             DeviceDisconnected?.Invoke(false);
                         }
