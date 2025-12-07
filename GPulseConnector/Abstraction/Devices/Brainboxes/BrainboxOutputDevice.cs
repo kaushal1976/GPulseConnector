@@ -72,32 +72,36 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
 
         public async Task<IReadOnlyList<bool>> ReadOutputsAsync(CancellationToken token = default)
         {
-            if (!IsConnected)
+            // Retry until connected (or cancellation requested)
+            while (!IsConnected)
             {
-                _logger?.LogWarning("ReadOutputsAsync called while device not connected @{Ip}", _options.OutputDevices.IpAddress);
-                return Enumerable.Repeat(false, _outputCount).ToList().AsReadOnly();
+                await _conn.EnsureConnectedAsync(token);
+
+                if (!IsConnected)
+                {
+                    // Prevent tight loop
+                    await Task.Delay(500, token);
+                }
             }
 
-            await _conn.EnsureConnectedAsync(token);
-
+            // Now safe to read outputs
             return _device.Outputs
                 .Select(o => o.Value == 1)
                 .ToList()
                 .AsReadOnly();
         }
 
-        public Task SetOutputAsync(int index, bool value, CancellationToken cancellationToken = default)
+        public async Task SetOutputAsync(int index, bool value, CancellationToken cancellationToken = default)
         {
-            if (!IsConnected)
-                throw new InvalidOperationException($"Output device @{_options.OutputDevices.IpAddress} not connected");
+            await _conn.EnsureConnectedAsync(cancellationToken);
 
             _device.Outputs[index].Value = value ? 1 : 0;
             OutputChanged?.Invoke(index, value);
 
-            return Task.CompletedTask;
+            return;
         }
 
-        public Task SetOutputsAsync(IReadOnlyList<bool> values, CancellationToken cancellationToken = default)
+        public async Task SetOutputsAsync(IReadOnlyList<bool> values, CancellationToken cancellationToken = default)
         {
             if (!IsConnected)
                 throw new InvalidOperationException($"Output device @{_options.OutputDevices.IpAddress} not connected");
@@ -108,7 +112,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             for (int i = 0; i < values.Count; i++)
                 OutputChanged?.Invoke(i, values[i]);
 
-            return Task.CompletedTask;
+            return ;
         }
 
         // --------------------------------------------------------------------
@@ -140,7 +144,8 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
 
         public Task DisconnectAsync(CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            Dispose();
+            return Task.CompletedTask;
         }
     }
 }

@@ -26,7 +26,7 @@ public class OutputUpdateWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await _device.ConnectAsync(stoppingToken);
+        //await _device.ConnectAsync(stoppingToken);
         _logger.LogInformation("Output Controller Starting..");
 
         // Read snapshot
