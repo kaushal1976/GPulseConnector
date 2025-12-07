@@ -72,15 +72,41 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
 
         public async Task<IReadOnlyList<bool>> ReadInputsAsync(CancellationToken token = default)
         {
+            // If not connected, return a "safe" result (false for all inputs)
+            if (!IsConnected || !IsAvailable)
+            {
+                return Enumerable.Repeat(false, _numInputs).ToList().AsReadOnly();
+            }
+
             await EnsureConnectedAsync(token);
 
-            var values = _device.Inputs
-                .AsIOList()
-                .Select(i => i.Value == 1)
-                .ToList();
+            try
+            {
+                var list = _device?.Inputs?.AsIOList();
 
-            return values.AsReadOnly();
+                // Brainboxes sometimes returns null when reconnecting
+                if (list == null)
+                {
+                    return Enumerable.Repeat(false, _numInputs).ToList().AsReadOnly();
+                }
+
+                var values = list
+                    .Select(i => i.Value == 1)
+                    .ToList();
+
+                return values.AsReadOnly();
+            }
+            catch (Exception ex)
+            {
+                // Prevent Brainboxes crashes during reconnection
+                _logger.LogWarning(ex, 
+                    "Input read failed for @{Ip}, returning safe defaults",
+                    _options.InputDevices.IpAddress);
+
+                return Enumerable.Repeat(false, _numInputs).ToList().AsReadOnly();
+            }
         }
+
 
         // --------------------------------------------------------------------
         // INTERNAL CONNECT LOGIC 
