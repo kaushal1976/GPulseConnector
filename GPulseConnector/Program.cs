@@ -126,15 +126,13 @@ IHost host = Host.CreateDefaultBuilder(args)
         // -----------------------------
         // WORKERS
         // -----------------------------
+        services.AddTableSync();
         services.AddHostedService<InputMonitoringWorker>();
         services.AddHostedService<RecordWriterWorker>();
         services.AddHostedService<RetryQueueWorker>();
-
         services.AddSingleton<OutputUpdateWorker>();
         services.AddSingleton<IHostedService>(sp =>
             sp.GetRequiredService<OutputUpdateWorker>());
-
-        services.AddTableSync();
     })
     .UseSerilog((context, services, loggerConfig) =>
     {

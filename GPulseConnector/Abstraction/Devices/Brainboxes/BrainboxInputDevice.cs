@@ -50,23 +50,22 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
         // --------------------------------------------------------------------
 
         public Task ConnectAsync(CancellationToken token = default)
-            => _conn.ConnectAsync(token);
+            => _conn.ConnectAsync(token); // helper auto-starts reconnect loop
 
         public Task StartMonitoringAsync(CancellationToken token)
-            => ConnectAsync(token);
+            => ConnectAsync(token); // same behavior
 
-        private async void HandleConnectionChanged(bool connected, bool available)
+        private void HandleConnectionChanged(bool connected, bool available)
         {
             if (!connected || !available)
             {
                 DeviceDisconnected?.Invoke(true);
                 _logger.LogWarning("Input device @{Ip} disconnected.", _options.InputDevices.IpAddress);
+                return;
             }
-            else
-            {
-                _logger.LogInformation("Input device @{Ip} connected.", _options.InputDevices.IpAddress);
-                TriggerInputsChangedSafe();
-            }
+
+            _logger.LogInformation("Input device @{Ip} connected.", _options.InputDevices.IpAddress);
+            TriggerInputsChangedSafe();
         }
 
         // --------------------------------------------------------------------
@@ -76,7 +75,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
         public async Task<IReadOnlyList<bool>> ReadInputsAsync(CancellationToken token = default)
         {
             if (!IsConnected || !IsAvailable)
-                await _conn.EnsureConnectedAsync(token);
+                await _conn.EnsureConnectedAsync(token); // helper auto-starts reconnect if needed
 
             try
             {
@@ -85,8 +84,10 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                 if (list == null)
                     return SafeDefaults();
 
-                var values = list.Select(i => i.Value == 1).ToList().AsReadOnly();
-                return values;
+                return list
+                    .Select(i => i.Value == 1)
+                    .ToList()
+                    .AsReadOnly();
             }
             catch (Exception ex)
             {
@@ -109,7 +110,8 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
 
         private void TriggerInputsChangedSafe()
         {
-            if (!IsConnected) return;
+            if (!IsConnected)
+                return;
 
             try
             {
