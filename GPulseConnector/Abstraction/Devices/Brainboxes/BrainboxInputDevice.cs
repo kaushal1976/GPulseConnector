@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Brainboxes.IO;
@@ -17,23 +18,23 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
         private readonly DeviceOptions _options;
 
         private readonly int _numInputs;
+
         private readonly CancellationTokenSource _lifetimeCts = new();
 
         private readonly object _stateLock = new();
         private bool _connected;
         private bool _available;
 
-        private volatile bool _isDisposed;
+        private volatile bool _isDisposed = false;
+
+        private readonly object _reconnectLock = new();
+        private Task? _reconnectTask;
 
         private EDDevice _device;
-
-        private Task? _reconnectTask;
-        private readonly object _reconnectLock = new();
 
         public event Action<IReadOnlyList<bool>>? InputsChanged;
         public event Action<bool>? DeviceDisconnected;
 
-        // Public read-only state
         public bool IsConnected { get { lock (_stateLock) return _connected; } }
         public bool IsAvailable { get { lock (_stateLock) return _available; } }
 
@@ -61,8 +62,6 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
         public async Task ConnectAsync(CancellationToken token = default)
         {
             await TryConnectAsync(token);
-
-            // If connect fails silently, reconnect loop will fix it
             EnsureReconnectLoopRunning();
         }
 
@@ -84,48 +83,62 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
         }
 
         // --------------------------------------------------------------------
-        // DEVICE CONNECT / DISCONNECT
+        // INTERNAL CONNECT LOGIC 
         // --------------------------------------------------------------------
 
-        private async Task TryConnectAsync(CancellationToken token)
+        private async Task<bool> TryConnectAsync(CancellationToken token)
         {
-            if (IsConnected)
-                return;
-                
+            bool success = false;
+
             try
             {
-                await Task.Run(() => _device.Connect(), token);
+                await Task.Run(() =>
+                {
+                    try
+                    {
+                        _device.Connect();
+                        success = true;
+                    }
+                    catch (SocketException ex)
+                    {
+                        _logger.LogWarning(
+                            "Input Device @{Ip} connection failed: {Message}",
+                            _options.InputDevices.IpAddress, ex.Message);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(
+                            ex,
+                            "Unexpected error connecting to Input Device @{Ip}",
+                            _options.InputDevices.IpAddress);
+                    }
+                }, token);
 
                 lock (_stateLock)
                 {
-                    _connected = true;
-                    _available = true;
+                    _connected = success;
+                    _available = success;
                 }
 
-                _logger.LogInformation($"Input Device @{ _options.InputDevices.IpAddress }: Connected successfully");
+                if (success)
+                {
+                    _logger.LogInformation(
+                        "Input Device @{Ip}: Connected successfully",
+                        _options.InputDevices.IpAddress);
+                }
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Fatal connect error @{Ip}", _options.InputDevices.IpAddress);
+
                 lock (_stateLock)
                 {
                     _connected = false;
                     _available = false;
                 }
-
-                _logger.LogWarning(ex,
-                    $"Input Device @{ _options.InputDevices.IpAddress } connection failed");
-
-                // reconnect loop will handle retry
             }
-        }
 
-        private void EnsureReconnectLoopRunning()
-        {
-            lock (_reconnectLock)
-            {
-                if (_reconnectTask == null || _reconnectTask.IsCompleted)
-                    _reconnectTask = ReconnectWorkerAsync(_lifetimeCts.Token);
-            }
+            return success;
         }
 
         private async Task EnsureConnectedAsync(CancellationToken token)
@@ -138,14 +151,37 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
         // RECONNECT LOOP
         // --------------------------------------------------------------------
 
+        private void EnsureReconnectLoopRunning()
+        {
+            lock (_reconnectLock)
+            {
+                if (_reconnectTask == null || _reconnectTask.IsCompleted)
+                {
+                    _reconnectTask = Task.Run(() => ReconnectWorkerAsync(_lifetimeCts.Token));
+                }
+            }
+        }
+
         private async Task ReconnectWorkerAsync(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
                 if (!IsConnected)
                 {
-                    _logger.LogInformation($"Input Device @{_options.InputDevices.IpAddress} reconnect attempt...");
-                    await TryConnectAsync(token);
+                    _logger.LogInformation(
+                        "Input Device @{Ip} attempting reconnection...",
+                        _options.InputDevices.IpAddress);
+
+                    bool connected = await TryConnectAsync(token);
+
+                    if (connected)
+                    {
+                        _logger.LogInformation(
+                            "Input Device @{Ip} reconnected.",
+                            _options.InputDevices.IpAddress);
+
+                        return; // END RECONNECT LOOP
+                    }
                 }
 
                 await Task.Delay(ReconnectIntervalMs, token);
@@ -202,7 +238,9 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                     break;
 
                 default:
-                    _logger.LogDebug($"Unknown device status: {property}={newValue} @{_options.InputDevices.IpAddress}");
+                    _logger.LogDebug(
+                        "Unknown device status: {Property}={Value} @{Ip}",
+                        property, newValue, _options.InputDevices.IpAddress);
                     break;
             }
         }
@@ -217,13 +255,18 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
                 _connected = isNowConnected;
             }
 
-            if (isNowConnected)
+            if (isNowConnected && !wasConnected)
             {
-                // Do NOT log again — ConnectAsync already logs this
+                _logger.LogInformation(
+                    "Input Device @{Ip} connected (event).",
+                    _options.InputDevices.IpAddress);
             }
-            else
+            else if (!isNowConnected && wasConnected)
             {
-                _logger.LogWarning($"Input Device @{_options.InputDevices.IpAddress} lost connection");
+                _logger.LogWarning(
+                    "Input Device @{Ip} lost connection.",
+                    _options.InputDevices.IpAddress);
+
                 DeviceDisconnected?.Invoke(true);
                 EnsureReconnectLoopRunning();
             }
@@ -241,7 +284,10 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
 
             if (!available)
             {
-                _logger.LogWarning($"Input Device @{_options.InputDevices.IpAddress} became unavailable");
+                _logger.LogWarning(
+                    "Input Device @{Ip} became unavailable.",
+                    _options.InputDevices.IpAddress);
+
                 DeviceDisconnected?.Invoke(true);
                 EnsureReconnectLoopRunning();
             }
@@ -258,7 +304,8 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
 
             _lifetimeCts.Cancel();
 
-            try { _device?.Dispose(); } catch { }
+            try { _device?.Dispose(); }
+            catch { }
         }
     }
 }
