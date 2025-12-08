@@ -49,7 +49,7 @@ public static class InitialiseDatabase
 
                         logger?.LogInformation("MSSQL database ensured/created successfully.");
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         logger?.LogWarning("Failed to create MSSQL database. Skipping.");
                         goto SkipMssqlEnsureCreated;
@@ -61,14 +61,14 @@ public static class InitialiseDatabase
                         await mssqlDb.Database.EnsureCreatedAsync();
                         logger?.LogInformation("MSSQL tables ensured successfully.");
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         logger?.LogWarning("Failed to ensure MSSQL tables.");
                     }
 
                 SkipMssqlEnsureCreated:;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     logger?.LogWarning("MSSQL unreachable or DbContext creation failed. Skipping database initialization.");
                 }
@@ -90,7 +90,7 @@ public static class InitialiseDatabase
                     await sqliteDb.Database.EnsureCreatedAsync();
                     logger?.LogInformation("SQLite fallback database ensured/created successfully.");
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     logger?.LogWarning("SQLite fallback database creation failed.");
                 }
