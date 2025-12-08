@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using GPulseConnector.Data;
-using GPulseConnector.Abstraction.Models;   
+using GPulseConnector.Abstraction.Models;
 using System.Reflection;
 using Microsoft.Data.SqlClient;
 
@@ -10,30 +10,27 @@ namespace GPulseConnector.Services
     {
         private readonly IDbContextFactory<AppDbContext> _factory;
         private readonly RetryQueueRepository _retryRepo;
-        private readonly DatabaseLogger _dblogger;
         private readonly ILogger<ReliableDatabaseWriter> _logger;
 
         public ReliableDatabaseWriter(
             IDbContextFactory<AppDbContext> factory,
             RetryQueueRepository retryRepo,
-            DatabaseLogger dblogger,
             ILogger<ReliableDatabaseWriter> logger)
         {
             _factory = factory;
             _retryRepo = retryRepo;
-            _dblogger = dblogger;
             _logger = logger;
         }
 
         public static T CloneObject<T>(T source) where T : class
         {
             if (source == null)
-                throw new ArgumentNullException(nameof(source));
+                return null!;
 
-            var target = (T)Activator.CreateInstance(typeof(T), nonPublic: true)!;
             var type = typeof(T);
+            var target = (T)Activator.CreateInstance(type, true)!;
 
-            foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var member in type.GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 switch (member)
                 {
@@ -52,37 +49,45 @@ namespace GPulseConnector.Services
 
         public async Task<bool> WriteSafeAsync<T>(T item) where T : class
         {
-            var copy = CloneObject(item); // Clone once to reuse
+            var copy = CloneObject(item);
+
             try
             {
                 await WriteAsync(item);
                 return true;
             }
+            catch (SqlException ex) when (ex.Number == 10061)
+            {
+                // SQL server offline → silently queue retry
+                await _retryRepo.EnqueueAsync(copy);
+                return false;
+            }
             catch (SqlException)
             {
-                // transient DB failure → enqueue silently
+                // Other transient SQL errors → silently queue retry
                 await _retryRepo.EnqueueAsync(copy);
                 return false;
             }
             catch (ObjectDisposedException)
             {
-                // transient network/socket issue → enqueue silently
+                // Context disposed/network issues → silently queue retry
                 await _retryRepo.EnqueueAsync(copy);
                 return false;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // only log unexpected errors
-                _logger.LogError(ex, "ReliableDatabaseWriter encountered a non-transient failure");
+                // Only truly unexpected errors are logged
+                _logger.LogError("ReliableDatabaseWriter encountered a non-transient failure");
                 await _retryRepo.EnqueueAsync(copy);
                 return false;
             }
         }
 
+
+
         public async Task WriteAsync<T>(T item) where T : class
         {
             await using var db = _factory.CreateDbContext();
-
             var strategy = db.Database.CreateExecutionStrategy();
 
             await strategy.ExecuteAsync(async () =>
@@ -90,32 +95,36 @@ namespace GPulseConnector.Services
                 db.ChangeTracker.Clear();
 
                 var entry = db.Entry(item);
-                var idProperty = entry.Metadata.FindPrimaryKey()?.Properties.FirstOrDefault();
+                var pk = entry.Metadata.FindPrimaryKey()?.Properties.FirstOrDefault();
 
-                if (idProperty == null)
-                    throw new InvalidOperationException(
-                        $"Type {typeof(T).Name} does not have a primary key. Cannot write."
-                    );
+                if (pk == null)
+                {
+                    _logger.LogWarning("No primary key defined for type {TypeName}", typeof(T).Name);
+                }
 
-                object? id = idProperty.PropertyInfo != null
-                    ? idProperty.PropertyInfo.GetValue(item)
-                    : entry.Property(idProperty.Name).CurrentValue;
+                object? id = pk?.PropertyInfo != null
+                    ? pk.PropertyInfo.GetValue(item)
+                    : pk != null ? entry.Property(pk.Name).CurrentValue : null;
 
                 bool isNew = id == null || (id is int i && i == 0);
 
-                var dbSet = db.Set<T>();
+                var set = db.Set<T>();
 
                 if (isNew)
                 {
-                    dbSet.Add(item);
+                    set.Add(item);
                 }
                 else
                 {
-                    var existing = await dbSet.FindAsync(id);
+                    var existing = await set.FindAsync(id);
                     if (existing == null)
-                        dbSet.Add(item);
+                    {
+                        set.Add(item);
+                    }
                     else
+                    {
                         db.Entry(existing).CurrentValues.SetValues(item);
+                    }
                 }
 
                 await db.SaveChangesAsync();

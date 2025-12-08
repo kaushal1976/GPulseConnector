@@ -79,7 +79,7 @@ namespace GPulseConnector.Workers
                     record.StatusId = matched?.Id;
 
                     bool ok = await _eventDatabaseWriter.TryWriteMachineEventAsync(record);
-                    _logger.LogInformation("Event Record written to primary DB at {T}", record.TimeStamp);
+                    _logger.LogInformation("Event Record written to the appropriate DB at {T}", record.TimeStamp);
                 }
                 catch (Exception ex)
                 {

@@ -49,9 +49,9 @@ namespace GPulseConnector.Workers
                     await t.SyncAsync(_msFactory, _sqliteFactory, ct);
                     _log.LogInformation("Synced table via {t}", t.GetType().Name);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    _log.LogError(ex, "Failed to sync table: {t}", t.GetType().Name);
+                    _log.LogError("Failed to sync table: {t}", t.GetType().Name);
                 }
             }
         }

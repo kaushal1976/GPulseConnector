@@ -74,7 +74,7 @@ IHost host = Host.CreateDefaultBuilder(args)
                 // Only log messages that are NOT Executed DbCommand
                     if (!message.StartsWith("Executed DbCommand"))
                     {
-                        Serilog.Log.Information(message);
+                        //Serilog.Log.Error(message); If enabled, the logs get very noisy. If detailed logging is needed, enable and change to Log.Information
                     }
                 },  
                 LogLevel.Error                  
@@ -90,7 +90,7 @@ IHost host = Host.CreateDefaultBuilder(args)
                     // Only log messages that are NOT Executed DbCommand
                         if (!message.StartsWith("Executed DbCommand"))
                         {
-                            Serilog.Log.Information(message);
+                            //Serilog.Log.Error(message); If enabled, the logs get very noisy. If detailed logging is needed, enable and change to Log.Information
                         }
                     },  
                     LogLevel.Error
@@ -104,7 +104,7 @@ IHost host = Host.CreateDefaultBuilder(args)
                 // Only log messages that are NOT Executed DbCommand
                     if (!message.StartsWith("Executed DbCommand"))
                     {
-                        Serilog.Log.Information(message);
+                        //Serilog.Log.Error(message); If enabled, the logs get very noisy. If detailed logging is needed, enable and change to Log.Information
                     }
                 },  
                 LogLevel.Error                  
@@ -134,21 +134,29 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IHostedService>(sp =>
             sp.GetRequiredService<OutputUpdateWorker>());
     })
-    .UseSerilog((context, services, loggerConfig) =>
-    {
-        var logDir = Path.Combine(AppContext.BaseDirectory, "logs");
-        Directory.CreateDirectory(logDir);
+   .UseSerilog((context, services, loggerConfig) =>
+   {
+       var logDir = Path.Combine(AppContext.BaseDirectory, "logs");
+       Directory.CreateDirectory(logDir);
 
-        loggerConfig
-        .MinimumLevel.Information() // general minimum level
-        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)// EF Core command logs
-        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Infrastructure", LogEventLevel.Error) // EF Core infrastructure logs
-        .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning) // EF Core general logs
-        .Enrich.FromLogContext()
-        .WriteTo.Console()
-        .WriteTo.File(Path.Combine(logDir, "log-.log"), rollingInterval: RollingInterval.Day);
+       loggerConfig
+           .MinimumLevel.Information() // default minimum level
 
-    })
+           // Suppress all EF Core internal logs related to connection/query/update
+           .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Connection", LogEventLevel.Fatal)
+           .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Update", LogEventLevel.Fatal)
+           .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Query", LogEventLevel.Fatal)
+           .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Infrastructure", LogEventLevel.Fatal)
+           .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Fatal)
+           .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Fatal)
+
+           .Enrich.FromLogContext()
+           .WriteTo.Console()
+           .WriteTo.File(
+               Path.Combine(logDir, "log-.log"),
+               rollingInterval: RollingInterval.Day
+           );
+   })
     .Build();
 
 // -----------------------------

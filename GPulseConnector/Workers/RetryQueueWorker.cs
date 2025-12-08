@@ -66,6 +66,7 @@ namespace GPulseConnector.Workers
                                     await _dblogger.LogAsync(
                                         $"Retried {type.Name} successfully (Item {item.Id}).",
                                         "Information");
+                                    _logger.LogInformation("Main database is back online and queued item {ID} is written to back to it", item.Id);
                                 }
                                 else
                                 {
@@ -80,7 +81,7 @@ namespace GPulseConnector.Workers
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Retry attempt failed for item {Id}", item.Id);
+                            _logger.LogWarning("Retry attempt failed for item {Id}", item.Id);
                             await _retryRepo.RecordFailureAsync(item, ex.Message);
                         }
 

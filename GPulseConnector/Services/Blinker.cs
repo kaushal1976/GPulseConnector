@@ -145,6 +145,8 @@ namespace GPulseConnector.Services
         // ===================================================================
         private async Task ProcessRequestAsync(BlinkRequest req, CancellationToken workerToken)
         {
+            bool completedNaturally = false;
+
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(workerToken, req.CancelToken.Token);
             var token = linked.Token;
 
@@ -155,7 +157,6 @@ namespace GPulseConnector.Services
 
             bool[] buffer = new bool[req.Input.Count];
 
-            // No blinking -> apply final instantly
             if (blinkIndexes.Length == 0)
             {
                 await SafeTick(req.TickCallback, req.FinalValues, token);
@@ -164,7 +165,6 @@ namespace GPulseConnector.Services
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-            // BLINK LOOP with duration limit
             try
             {
                 while (!token.IsCancellationRequested &&
@@ -177,13 +177,22 @@ namespace GPulseConnector.Services
 
                     await Task.Delay(req.BlinkIntervalMs, token);
                 }
+
+                // If loop exited by time, not cancellation:
+                if (!token.IsCancellationRequested)
+                    completedNaturally = true;
             }
             catch (OperationCanceledException) { }
 
-            // Final apply only if request was NOT preempted
-            if (!req.CancelToken.IsCancellationRequested && !workerToken.IsCancellationRequested)
-                await SafeTick(req.TickCallback, req.FinalValues, CancellationToken.None);
+
+            // Final apply ONLY if blinking finished by duration, not cancelled.
+            if (!linked.IsCancellationRequested &&
+                stopwatch.ElapsedMilliseconds >= req.BlinkDurationMs)
+            {
+                await SafeTick(req.TickCallback, req.FinalValues.ToArray(), CancellationToken.None);
+            }
         }
+
 
         private static async Task SafeTick(
             Func<IReadOnlyList<bool>, Task> cb,

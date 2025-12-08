@@ -1,3 +1,8 @@
+using GPulseConnector.Abstraction.Models;
+using GPulseConnector.Data;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -5,9 +10,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using GPulseConnector.Data;
-using GPulseConnector.Abstraction.Models;
 
 namespace GPulseConnector.Services
 {
@@ -28,88 +30,117 @@ namespace GPulseConnector.Services
             return Convert.ToHexString(hash);
         }
 
+        private RetryQueueDbContext CreateDbContext()
+        {
+            // Simply create context from factory; logging is configured elsewhere
+            return _factory.CreateDbContext();
+        }
+
         public async Task EnqueueAsync<T>(T payload)
         {
             var json = JsonSerializer.Serialize(payload);
             var hash = ComputeHash(json);
 
-            await using var db = _factory.CreateDbContext();
-
-            // dedupe by payload hash to avoid exact duplicates
-            var exists = await db.RetryQueue.AsNoTracking().AnyAsync(x => x.PayloadHash == hash);
-            if (exists) return;
-
-            var item = new RetryQueueItem
+            try
             {
-                PayloadType = typeof(T).AssemblyQualifiedName!,
-                PayloadJson = json,
-                PayloadHash = hash,
-                AttemptCount = 0,
-                CreatedOnUtc = DateTime.UtcNow
-            };
+                await using var db = CreateDbContext();
+                var exists = await db.RetryQueue.AsNoTracking().AnyAsync(x => x.PayloadHash == hash);
+                if (exists) return;
 
-            db.RetryQueue.Add(item);
-            await db.SaveChangesAsync();
+                var item = new RetryQueueItem
+                {
+                    PayloadType = typeof(T).AssemblyQualifiedName!,
+                    PayloadJson = json,
+                    PayloadHash = hash,
+                    AttemptCount = 0,
+                    CreatedOnUtc = DateTime.UtcNow
+                };
+
+                db.RetryQueue.Add(item);
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException) { }
+            catch (SqlException) { }
         }
 
         public async Task<List<RetryQueueItem>> LoadAllAsync()
         {
-            await using var db = _factory.CreateDbContext();
-            return await db.RetryQueue.OrderBy(x => x.Id).ToListAsync();
+            try
+            {
+                await using var db = CreateDbContext();
+                return await db.RetryQueue.OrderBy(x => x.Id).ToListAsync();
+            }
+            catch (SqlException) { return new List<RetryQueueItem>(); }
         }
 
         public async Task DeleteAsync(RetryQueueItem item)
         {
-            await using var db = _factory.CreateDbContext();
-            var tracked = await db.RetryQueue.FindAsync(item.Id);
-            if (tracked != null)
+            try
             {
-                db.RetryQueue.Remove(tracked);
-                await db.SaveChangesAsync();
+                await using var db = CreateDbContext();
+                var tracked = await db.RetryQueue.FindAsync(item.Id);
+                if (tracked != null)
+                {
+                    db.RetryQueue.Remove(tracked);
+                    await db.SaveChangesAsync();
+                }
             }
+            catch (DbUpdateException) { }
+            catch (SqlException) { }
         }
 
         public async Task DeleteAsync(long id)
         {
-            await using var db = _factory.CreateDbContext();
-            var tracked = await db.RetryQueue.FindAsync(id);
-            if (tracked != null)
+            try
             {
-                db.RetryQueue.Remove(tracked);
-                await db.SaveChangesAsync();
+                await using var db = CreateDbContext();
+                var tracked = await db.RetryQueue.FindAsync(id);
+                if (tracked != null)
+                {
+                    db.RetryQueue.Remove(tracked);
+                    await db.SaveChangesAsync();
+                }
             }
+            catch (DbUpdateException) { }
+            catch (SqlException) { }
         }
 
         public async Task RecordFailureAsync(RetryQueueItem item, string? lastError = null)
         {
-            await using var db = _factory.CreateDbContext();
-            var tracked = await db.RetryQueue.FindAsync(item.Id);
-            if (tracked == null)
+            try
             {
-                // maybe already deleted
-                return;
+                await using var db = CreateDbContext();
+                var tracked = await db.RetryQueue.FindAsync(item.Id);
+                if (tracked == null) return;
+
+                tracked.AttemptCount++;
+                if (!string.IsNullOrWhiteSpace(lastError))
+                    tracked.LastError = lastError;
+
+                db.RetryQueue.Update(tracked);
+                await db.SaveChangesAsync();
             }
-
-            tracked.AttemptCount++;
-            if (!string.IsNullOrWhiteSpace(lastError))
-                tracked.LastError = lastError;
-
-            db.RetryQueue.Update(tracked);
-            await db.SaveChangesAsync();
+            catch (DbUpdateException) { }
+            catch (SqlException) { }
         }
 
         public async Task RecordFailureAsync(long id, string? lastError = null)
         {
-            await using var db = _factory.CreateDbContext();
-            var tracked = await db.RetryQueue.FindAsync(id);
-            if (tracked == null) return;
+            try
+            {
+                await using var db = CreateDbContext();
+                var tracked = await db.RetryQueue.FindAsync(id);
+                if (tracked == null) return;
 
-            tracked.AttemptCount++;
-            if (!string.IsNullOrWhiteSpace(lastError))
-                tracked.LastError = lastError;
+                tracked.AttemptCount++;
+                if (!string.IsNullOrWhiteSpace(lastError))
+                    tracked.LastError = lastError;
 
-            db.RetryQueue.Update(tracked);
-            await db.SaveChangesAsync();
+                db.RetryQueue.Update(tracked);
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException) { }
+            catch (SqlException) { }
         }
 
         public static object? Deserialize(RetryQueueItem item)
@@ -126,4 +157,5 @@ namespace GPulseConnector.Services
             }
         }
     }
+
 }
