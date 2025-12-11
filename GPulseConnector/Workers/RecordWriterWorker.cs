@@ -5,6 +5,7 @@ using GPulseConnector.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -20,6 +21,8 @@ namespace GPulseConnector.Workers
         private readonly ReliableDatabaseWriter _reliableDatabaseWriter;
         private readonly OutputUpdateWorker _outputUpdateWorker;
         private readonly IPatternMappingCache _patternCache;    
+
+        const int HelpSignalInputIndex = 9;
 
         public RecordWriterWorker(
         ILogger<RecordWriterWorker> logger,
@@ -105,6 +108,29 @@ namespace GPulseConnector.Workers
                 {
                     _logger.LogWarning(ex, "Could not update the outputs");
                 }
+                try
+                {
+                    if (IsOperatorCallingForHelp(inputs))
+                    {
+                        if (matched != null)
+                        {
+                            _logger.LogInformation(
+                                "Operator help request detected @ {Time} for the Status {Status}", DateTime.UtcNow, matched.InputStatus);
+                        }
+                        
+                        await _outputUpdateWorker.CallingForHelpAsync(true, stoppingToken);
+                    }
+                    else
+                    {
+                        await _outputUpdateWorker.CallingForHelpAsync(false, stoppingToken);
+                        _logger.LogInformation(
+                                "Operator help cleared @ {Time} for the Status {Status}", DateTime.UtcNow, matched?.InputStatus);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not log operator help request");
+                }
             }
         }
 
@@ -120,6 +146,12 @@ namespace GPulseConnector.Workers
             }
 
             return true;
+        }
+
+        private static bool IsOperatorCallingForHelp(IReadOnlyList<bool> inputs)
+        {
+        
+            return inputs.Count >= 10 && inputs[HelpSignalInputIndex];
         }
 
         private static IReadOnlyList<object> ToObjectList<T>(IReadOnlyList<T> list)

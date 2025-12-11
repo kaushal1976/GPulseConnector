@@ -16,6 +16,10 @@ public class OutputUpdateWorker : BackgroundService
     private readonly Blinker _blinker;
     private readonly ILogger<OutputUpdateWorker> _logger;
 
+    private const int HelpSignalOutputIndex = 3;
+    private const int HelpSignalBlinkMs = 125;
+
+
     public OutputUpdateWorker(
         IOutputDevice device, 
         IPatternMappingCache cache, 
@@ -85,6 +89,22 @@ public class OutputUpdateWorker : BackgroundService
         catch (System.Exception ex)
         {
             _logger.LogError(ex, "Error in UpdateOutputAsync");
+        }
+    }
+
+    public async Task CallingForHelpAsync(bool status, CancellationToken stoppingToken)
+    {
+        if (status)
+        _logger.LogInformation("Operator is calling for help. Activating help signal.");
+
+        try
+        {
+            await _device.SetOutputAsync(HelpSignalOutputIndex, status, stoppingToken);  
+
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogError(ex, "Error in CallingForHelpAsync");
         }
     }
 
