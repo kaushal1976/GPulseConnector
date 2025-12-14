@@ -17,29 +17,34 @@ namespace GPulseConnector.Services;
             return null;
 
         // Precompute pattern masks
-        var patternMasks = patterns.Select(p =>
+       var patternMasks = patterns.Select(p =>
         {
             int value = 0;
             int mask = 0;
-            bool?[] bits = new bool?[]
+
+            bool?[] bits =
             {
                 p.ID0, p.ID1, p.ID2,
                 p.ID3, p.ID4, p.ID5,
                 p.ID6, p.ID7, p.ID8
             };
 
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < bits.Length; i++)
             {
-                if (bits[i].HasValue)
-                {
-                    mask |= 1 << i;               // bit position we care about
-                    if (bits[i].Value)
-                        value |= 1 << i;          // bit value to match
-                }
+                bool? bit = bits[i];   // 👈 capture locally
+
+                if (!bit.HasValue)
+                    continue;
+
+                mask |= 1 << i;
+
+                if (bit.Value)
+                    value |= 1 << i;
             }
 
             return (pattern: p, mask, value);
         }).ToList();
+
 
         // Convert inputFlags to a sliding 9-bit integer window
         for (int start = 0; start <= inputFlags.Count - 9; start++)

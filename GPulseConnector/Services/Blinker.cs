@@ -10,7 +10,7 @@ namespace GPulseConnector.Services;
 public sealed class Blinker : IDisposable
 {
     private readonly object _lock = new object();
-    private CancellationTokenSource _activeCts;
+    private CancellationTokenSource? _activeCts;
     private bool _disposed;
 
     /// <summary>
@@ -23,6 +23,7 @@ public sealed class Blinker : IDisposable
         int blinkIntervalMs,
         int blinkDurationMs,
         CancellationToken externalCancel = default)
+        
     {
         if (finalValues == null || finalValues.Count == 0)
             throw new ArgumentException("finalValues cannot be null or empty.", nameof(finalValues));

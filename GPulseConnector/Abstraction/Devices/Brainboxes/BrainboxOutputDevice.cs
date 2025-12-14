@@ -101,10 +101,15 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             return;
         }
 
-        public async Task SetOutputsAsync(IReadOnlyList<bool> values, CancellationToken cancellationToken = default)
+        public Task SetOutputsAsync(
+            IReadOnlyList<bool> values,
+            CancellationToken cancellationToken = default)
         {
             if (!IsConnected)
-                throw new InvalidOperationException($"Output device @{_options.OutputDevices.IpAddress} not connected");
+                throw new InvalidOperationException(
+                    $"Output device @{_options.OutputDevices.IpAddress} not connected");
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             for (int i = 0; i < values.Count; i++)
                 _device.Outputs[i].Value = values[i] ? 1 : 0;
@@ -112,7 +117,7 @@ namespace GPulseConnector.Abstraction.Devices.Brainboxes
             for (int i = 0; i < values.Count; i++)
                 OutputChanged?.Invoke(i, values[i]);
 
-            return ;
+            return Task.CompletedTask;
         }
 
         // --------------------------------------------------------------------
