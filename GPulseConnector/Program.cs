@@ -121,7 +121,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<MachineEventDatabaseWriter>();
         services.AddSingleton<ReliableDatabaseWriter>();
         services.AddSingleton<DatabaseLogger>();
-        services.AddSingleton<Blinker>();
+        services.AddSingleton<IBlinker, Blinker>();
 
         // -----------------------------
         // WORKERS

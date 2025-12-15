@@ -13,7 +13,7 @@ public class OutputUpdateWorker : BackgroundService
 {
     private readonly IOutputDevice _device;
     private readonly IPatternMappingCache _cache;
-    private readonly Blinker _blinker;
+    private readonly IBlinker _blinker;
     private readonly ILogger<OutputUpdateWorker> _logger;
 
     private const int HelpSignalOutputIndex = 3;
@@ -23,7 +23,7 @@ public class OutputUpdateWorker : BackgroundService
     public OutputUpdateWorker(
         IOutputDevice device, 
         IPatternMappingCache cache, 
-        Blinker blinker, 
+        IBlinker blinker, 
         ILogger<OutputUpdateWorker> logger) 
     {
         _device = device;

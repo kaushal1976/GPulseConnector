@@ -7,16 +7,15 @@ using GPulseConnector.Abstraction.Interfaces;
 
 namespace GPulseConnector.Services;
 
-public sealed class Blinker : IDisposable
+public sealed class Blinker : IBlinker
 {
     private readonly object _lock = new object();
     private CancellationTokenSource? _activeCts;
     private bool _disposed;
 
-    /// <summary>
-    /// Starts blinking the final values. Immediately cancels any previous blink.
+    /// In this version: Starts blinking the final values. Immediately cancels any previous blink.
     /// Does NOT wait for previous blink to complete.
-    /// </summary>
+
     public Task StartOrRestartAsync(
         IReadOnlyList<bool> finalValues,
         Func<IReadOnlyList<bool>, Task> tickCallback,
